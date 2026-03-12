@@ -5,26 +5,35 @@ namespace JPEG;
 
 public class DCT
 {
+	static readonly double[,] CosTable = new double[8, 8];
+	private static int DCTSize = 8;
+
 	public static double[,] DCT2D(double[,] input)
 	{
-		var height = input.GetLength(0);
+		var height = input.GetLength(0); 
 		var width = input.GetLength(1);
-		var coeffs = new double[width, height];
+		var coeffs = new double[DCTSize, DCTSize];
 
-		MathEx.LoopByTwoVariables(
-			0, width,
-			0, height,
-			(u, v) =>
+		for (int u = 0; u < DCTSize; u++)
+		{
+			for (int v = 0; v < DCTSize; v++)
 			{
-				var sum = MathEx
-					.SumByTwoVariables(
-						0, width,
-						0, height,
-						(x, y) => BasisFunction(input[x, y], u, v, x, y, height, width));
+				double sum = 0;
 
+				for (int x = 0; x < DCTSize; x++)
+				{
+					for (int y = 0; y < DCTSize; y++)
+					{
+						sum += input[x, y] *
+						       CosTable[x, u] *
+						       CosTable[y, v];
+					}
+				}
+				
 				coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
-			});
-
+			}
+		}
+		
 		return coeffs;
 	}
 
@@ -34,25 +43,22 @@ public class DCT
 		{
 			for (var y = 0; y < coeffs.GetLength(0); y++)
 			{
-				var sum = MathEx
-					.SumByTwoVariables(
-						0, coeffs.GetLength(1),
-						0, coeffs.GetLength(0),
-						(u, v) =>
-							BasisFunction(coeffs[u, v], u, v, x, y, coeffs.GetLength(0), coeffs.GetLength(1)) *
-							Alpha(u) * Alpha(v));
+				double sum = 0;
+
+				for (int u = 0; u < DCTSize; u++)
+				{
+					for (int v = 0; v < DCTSize; v++)
+					{
+						sum += coeffs[u, v] *
+						       CosTable[x, u] *
+						       CosTable[y, v] *
+						       Alpha(u) * Alpha(v);
+					}
+				}
 
 				output[x, y] = sum * Beta(coeffs.GetLength(0), coeffs.GetLength(1));
 			}
 		}
-	}
-
-	public static double BasisFunction(double a, double u, double v, double x, double y, int height, int width)
-	{
-		var b = Math.Cos(((2d * x + 1d) * u * Math.PI) / (2 * width));
-		var c = Math.Cos(((2d * y + 1d) * v * Math.PI) / (2 * height));
-
-		return a * b * c;
 	}
 
 	private static double Alpha(int u)
