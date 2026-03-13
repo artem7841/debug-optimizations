@@ -97,7 +97,7 @@ public class JpegProcessor : IJpegProcessor
 						ShiftMatrixValues(channel, 128);
 					}
 
-					SetPixels(result, _y, cb, cr, PixelFormat.YCbCr, y, x);
+					SetPixels(result, _y, cb, cr, 1, y, x);
 				}
 			}
 		}
@@ -115,7 +115,7 @@ public class JpegProcessor : IJpegProcessor
 			subMatrix[y, x] = subMatrix[y, x] + shiftValue;
 	}
 
-	private static void SetPixels(Matrix matrix, double[,] a, double[,] b, double[,] c, PixelFormat format,
+	private static void SetPixels(Matrix matrix, double[,] a, double[,] b, double[,] c, byte format,
 		int yOffset, int xOffset)
 	{
 		var height = a.GetLength(0);
@@ -123,7 +123,7 @@ public class JpegProcessor : IJpegProcessor
 
 		for (var y = 0; y < height; y++)
 		for (var x = 0; x < width; x++)
-			matrix.Pixels[yOffset + y, xOffset + x] = new Pixel(a[y, x], b[y, x], c[y, x], format);
+			matrix.Pixels[yOffset + y, xOffset + x] = new Pixel((float)a[y, x], (float)b[y, x], (float)c[y, x], format);
 	}
 
 	private static void GetSubMatrix(Matrix matrix, int yOffset, int yLength, int xOffset, int xLength,
