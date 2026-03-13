@@ -7,6 +7,23 @@ public class DCT
 {
 	static readonly double[,] CosTable = new double[8, 8];
 	private static int DCTSize = 8;
+	private static readonly double[] AlphaTable = new double[8];
+	
+	static DCT() 
+	{
+		for (int i = 0; i < DCTSize; i++)
+		{
+			AlphaTable[i] = i == 0 ? 1 / Math.Sqrt(2) : 1.0;
+		}
+		
+		for (int x = 0; x < DCTSize; x++)
+		{
+			for (int u = 0; u < DCTSize; u++)
+			{
+				CosTable[x, u] = Math.Cos((2 * x + 1) * u * Math.PI / (2 * DCTSize));
+			}
+		}
+	}
 
 	public static double[,] DCT2D(double[,] input)
 	{
@@ -30,7 +47,7 @@ public class DCT
 					}
 				}
 				
-				coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
+				coeffs[u, v] = sum * Beta(height, width) * AlphaTable[u] * AlphaTable[v];
 			}
 		}
 		
@@ -52,7 +69,7 @@ public class DCT
 						sum += coeffs[u, v] *
 						       CosTable[x, u] *
 						       CosTable[y, v] *
-						       Alpha(u) * Alpha(v);
+						       AlphaTable[u] * AlphaTable[v];
 					}
 				}
 
@@ -61,15 +78,8 @@ public class DCT
 		}
 	}
 
-	private static double Alpha(int u)
+	private static float Beta(int height, int width)
 	{
-		if (u == 0)
-			return 1 / Math.Sqrt(2);
-		return 1;
-	}
-
-	private static double Beta(int height, int width)
-	{
-		return 1d / width + 1d / height;
+		return 1f / width + 1f / height;
 	}
 }
