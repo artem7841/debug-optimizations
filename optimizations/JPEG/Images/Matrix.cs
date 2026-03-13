@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading.Tasks;
 
 namespace JPEG.Images;
 
@@ -22,19 +23,41 @@ class Matrix
 
 	public static explicit operator Matrix(Bitmap bmp)
 	{
-		var height = bmp.Height - bmp.Height % 8;
-		var width = bmp.Width - bmp.Width % 8;
+		var width = bmp.Width;
+		var height = bmp.Height;
 		var matrix = new Matrix(height, width);
 
-		for (var j = 0; j < height; j++)
+		BitmapData bmpData = bmp.LockBits(
+			new Rectangle(0, 0, width, height),
+			ImageLockMode.ReadOnly,
+			bmp.PixelFormat);
+    
+		try
 		{
-			for (var i = 0; i < width; i++)
+			int stride = bmpData.Stride;
+			unsafe
 			{
-				var pixel = bmp.GetPixel(i, j);
-				matrix.Pixels[j, i] = new Pixel(pixel.R, pixel.G, pixel.B, 0);
+				byte* scan0 = (byte*)bmpData.Scan0;
+            
+				Parallel.For(0, height, j =>
+				{
+					byte* row = scan0 + j * stride;
+                
+					for (int i = 0; i < width; i++)
+					{
+						byte b = row[i * 3];
+						byte g = row[i * 3 + 1];
+						byte r = row[i * 3 + 2];
+						matrix.Pixels[j, i] = new Pixel(r, g, b, 0);
+					}
+				});
 			}
 		}
-
+		finally
+		{
+			bmp.UnlockBits(bmpData);
+		}
+    
 		return matrix;
 	}
 
