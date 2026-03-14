@@ -10,10 +10,15 @@ static class IEnumerableExtensions
 	{
 		return enumerable.OrderBy(selector).FirstOrDefault();
 	}
-
-	public static IEnumerable<T> Without<T>(this IEnumerable<T> enumerable, params T[] elements)
+	public static IEnumerable<T> Without<T>(this IEnumerable<T> enumerable, T element)
 	{
-		return enumerable.Where(x => !elements.Contains(x));
+		var comparer = EqualityComparer<T>.Default;
+
+		foreach (var item in enumerable)
+		{
+			if (!comparer.Equals(item, element))
+				yield return item;
+		}
 	}
 
 	public static IEnumerable<T> ToEnumerable<T>(this T element)

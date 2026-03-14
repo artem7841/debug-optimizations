@@ -5,8 +5,8 @@ namespace JPEG;
 
 public class DCT
 {
-	static readonly double[,] CosTable = new double[8, 8];
-	private static int DCTSize = 8;
+	static readonly double[] CosTable = new double[64];
+	const int DCTSize = 8;
 	private static readonly double[] AlphaTable = new double[8];
 	
 	static DCT() 
@@ -20,17 +20,29 @@ public class DCT
 		{
 			for (int u = 0; u < DCTSize; u++)
 			{
-				CosTable[x, u] = Math.Cos((2 * x + 1) * u * Math.PI / (2 * DCTSize));
+				CosTable[x*8 + u] = Math.Cos((2 * x + 1) * u * Math.PI / (2 * DCTSize));
 			}
 		}
 	}
 
 	public static double[,] DCT2D(double[,] input)
 	{
-		var height = input.GetLength(0); 
-		var width = input.GetLength(1);
+		var tempCoeffs = new double[DCTSize, DCTSize];
 		var coeffs = new double[DCTSize, DCTSize];
+		
+		for (int v = 0; v < DCTSize; v++)
+		{
+			for (int u = 0; u < DCTSize; u++)
+			{
+				double sum = 0;
 
+				for (int y = 0; y < DCTSize; y++)
+					sum += input[v, y] * CosTable[y*8 + u];
+
+				tempCoeffs[v, u] = sum * AlphaTable[u];
+			}
+		}
+		
 		for (int u = 0; u < DCTSize; u++)
 		{
 			for (int v = 0; v < DCTSize; v++)
@@ -38,16 +50,9 @@ public class DCT
 				double sum = 0;
 
 				for (int x = 0; x < DCTSize; x++)
-				{
-					for (int y = 0; y < DCTSize; y++)
-					{
-						sum += input[x, y] *
-						       CosTable[x, u] *
-						       CosTable[y, v];
-					}
-				}
-				
-				coeffs[u, v] = sum * Beta(height, width) * AlphaTable[u] * AlphaTable[v];
+					sum += tempCoeffs[x, u] * CosTable[x*8 + v];
+
+				coeffs[u, v] = sum * AlphaTable[v];
 			}
 		}
 		
@@ -56,9 +61,10 @@ public class DCT
 
 	public static void IDCT2D(double[,] coeffs, double[,] output)
 	{
-		for (var x = 0; x < coeffs.GetLength(1); x++)
+		
+		for (var x = 0; x < DCTSize; x++)
 		{
-			for (var y = 0; y < coeffs.GetLength(0); y++)
+			for (var y = 0; y < DCTSize; y++)
 			{
 				double sum = 0;
 
@@ -67,13 +73,13 @@ public class DCT
 					for (int v = 0; v < DCTSize; v++)
 					{
 						sum += coeffs[u, v] *
-						       CosTable[x, u] *
-						       CosTable[y, v] *
+						       CosTable[x*8 + u] *
+						       CosTable[y*8 + v] *
 						       AlphaTable[u] * AlphaTable[v];
 					}
 				}
 
-				output[x, y] = sum * Beta(coeffs.GetLength(0), coeffs.GetLength(1));
+				output[x, y] = sum * Beta(DCTSize, DCTSize);
 			}
 		}
 	}
