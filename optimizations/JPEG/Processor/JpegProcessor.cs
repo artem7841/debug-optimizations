@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using JPEG.Images;
 using PixelFormat = JPEG.Images.PixelFormat;
 
@@ -41,13 +42,15 @@ public class JpegProcessor : IJpegProcessor
 		var subMatrix = new double[DCTSize, DCTSize];
 		var channelFreqs = new double[DCTSize, DCTSize];
 		var quantizedFreqs = new byte[DCTSize, DCTSize];
+
+		Func<Pixel, double>[] selectrors = new Func<Pixel, double>[] { p => p.Y, p => p.Cb, p => p.Cr };
 		
 
 		for (var y = 0; y < matrix.Height; y += DCTSize)
 		{
 			for (var x = 0; x < matrix.Width; x += DCTSize)
 			{
-				foreach (var selector in new Func<Pixel, double>[] { p => p.Y, p => p.Cb, p => p.Cr })
+				foreach (var selector in selectrors)
 				{
 					GetSubMatrix(matrix, y, DCTSize, x, DCTSize, selector, subMatrix);
 					ShiftMatrixValues(subMatrix, -128);
@@ -83,6 +86,7 @@ public class JpegProcessor : IJpegProcessor
 			var quantizedFreqs = new byte[DCTSize, DCTSize];
 			var channelFreqs = new double[DCTSize, DCTSize];
 			var channels = new[] { _y, cb, cr };
+			
 			
 			for (var y = 0; y < image.Height; y += DCTSize)
 			{
@@ -251,9 +255,9 @@ public class JpegProcessor : IJpegProcessor
 			{ 72, 92, 95, 98, 112, 100, 103, 99 }
 		};
 
-		for (int y = 0; y < result.GetLength(0); y++)
+		for (int y = 0; y < 8; y++)
 		{
-			for (int x = 0; x < result.GetLength(1); x++)
+			for (int x = 0; x < 8; x++)
 			{
 				result[y, x] = (multiplier * result[y, x] + 50) / 100;
 			}

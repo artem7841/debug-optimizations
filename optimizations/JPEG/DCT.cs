@@ -24,11 +24,13 @@ public class DCT
 			}
 		}
 	}
+	
+	private static double[,] coeffs = new double[DCTSize, DCTSize];
+	private static double[] tempCoeffs = new double[64];
+	
 
 	public static double[,] DCT2D(double[,] input)
 	{
-		var tempCoeffs = new double[DCTSize, DCTSize];
-		var coeffs = new double[DCTSize, DCTSize];
 		
 		for (int v = 0; v < DCTSize; v++)
 		{
@@ -39,7 +41,7 @@ public class DCT
 				for (int y = 0; y < DCTSize; y++)
 					sum += input[v, y] * CosTable[y*8 + u];
 
-				tempCoeffs[v, u] = sum * AlphaTable[u];
+				tempCoeffs[v*8 + u] = sum * AlphaTable[u];
 			}
 		}
 		
@@ -49,8 +51,8 @@ public class DCT
 			{
 				double sum = 0;
 
-				for (int x = 0; x < DCTSize; x++)
-					sum += tempCoeffs[x, u] * CosTable[x*8 + v];
+				for (byte x = 0; x < DCTSize; x++)
+					sum += tempCoeffs[x*8 + u] * CosTable[x*8 + v];
 
 				coeffs[u, v] = sum * AlphaTable[v];
 			}
@@ -61,7 +63,6 @@ public class DCT
 
 	public static void IDCT2D(double[,] coeffs, double[,] output)
 	{
-		
 		for (var x = 0; x < DCTSize; x++)
 		{
 			for (var y = 0; y < DCTSize; y++)
@@ -79,13 +80,8 @@ public class DCT
 					}
 				}
 
-				output[x, y] = sum * Beta(DCTSize, DCTSize);
+				output[x, y] = sum * 250;
 			}
 		}
-	}
-
-	private static float Beta(int height, int width)
-	{
-		return 1f / width + 1f / height;
 	}
 }
