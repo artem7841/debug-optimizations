@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using JPEG.Images;
 using PixelFormat = JPEG.Images.PixelFormat;
 
@@ -15,10 +14,6 @@ public class JpegProcessor : IJpegProcessor
 	public static readonly JpegProcessor Init = new();
 	public const int CompressionQuality = 70;
 	private const int DCTSize = 8;
-	private static ParallelOptions options = new ParallelOptions
-	{
-		MaxDegreeOfParallelism = Environment.ProcessorCount 
-	};
 
 	public void Compress(string imagePath, string compressedImagePath)
 	{
@@ -46,30 +41,23 @@ public class JpegProcessor : IJpegProcessor
 		var subMatrix = new double[DCTSize, DCTSize];
 		var channelFreqs = new double[DCTSize, DCTSize];
 		var quantizedFreqs = new byte[DCTSize, DCTSize];
-		var lockObject = new object();
+		
 
-		Func<Pixel, double>[] selectrors = new Func<Pixel, double>[] { p => p.Y, p => p.Cb, p => p.Cr };
-
-		int blocksY = matrix.Height / DCTSize;
-		Parallel.For(0, blocksY, options, yBlock =>
+		for (var y = 0; y < matrix.Height; y += DCTSize)
 		{
-			int y = yBlock * DCTSize;
 			for (var x = 0; x < matrix.Width; x += DCTSize)
 			{
-				foreach (var selector in selectrors)
+				foreach (var selector in new Func<Pixel, double>[] { p => p.Y, p => p.Cb, p => p.Cr })
 				{
 					GetSubMatrix(matrix, y, DCTSize, x, DCTSize, selector, subMatrix);
 					ShiftMatrixValues(subMatrix, -128);
 					channelFreqs = DCT.DCT2D(subMatrix);
 					quantizedFreqs = Quantize(channelFreqs, quality);
 					var zigZag = ZigZagScan(quantizedFreqs);
-					lock (lockObject)
-					{
-						allQuantizedBytes.AddRange(zigZag);
-					}
+					allQuantizedBytes.AddRange(zigZag);
 				}
 			}
-		});
+		}
 
 		long bitsCount;
 		Dictionary<BitsWithLength, byte> decodeTable;
@@ -95,10 +83,8 @@ public class JpegProcessor : IJpegProcessor
 			var quantizedFreqs = new byte[DCTSize, DCTSize];
 			var channelFreqs = new double[DCTSize, DCTSize];
 			var channels = new[] { _y, cb, cr };
-			var lockObject = new object();
-			int blocksY = image.Height / DCTSize;
 			
-			Parallel.For(0, blocksY, options, y =>
+			for (var y = 0; y < image.Height; y += DCTSize)
 			{
 				for (var x = 0; x < image.Width; x += DCTSize)
 				{
@@ -111,12 +97,9 @@ public class JpegProcessor : IJpegProcessor
 						ShiftMatrixValues(channel, 128);
 					}
 
-					lock (lockObject)
-					{
-						SetPixels(result, _y, cb, cr, 1, y, x);	
-					}
+					SetPixels(result, _y, cb, cr, 1, y, x);
 				}
-			});
+			}
 		}
 
 		return result;
@@ -268,9 +251,9 @@ public class JpegProcessor : IJpegProcessor
 			{ 72, 92, 95, 98, 112, 100, 103, 99 }
 		};
 
-		for (int y = 0; y < 8; y++)
+		for (int y = 0; y < result.GetLength(0); y++)
 		{
-			for (int x = 0; x < 8; x++)
+			for (int x = 0; x < result.GetLength(1); x++)
 			{
 				result[y, x] = (multiplier * result[y, x] + 50) / 100;
 			}

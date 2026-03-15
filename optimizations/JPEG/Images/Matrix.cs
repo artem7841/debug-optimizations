@@ -23,47 +23,56 @@ class Matrix
 
 	public static explicit operator Matrix(Bitmap bmp)
 	{
-		var width = bmp.Width;
-		var height = bmp.Height;
+		int width = bmp.Width - bmp.Width % 8;
+		int height = bmp.Height - bmp.Height % 8;
+
 		var matrix = new Matrix(height, width);
 
-		BitmapData bmpData = bmp.LockBits(
-			new Rectangle(0, 0, width, height),
+		using var clone = bmp.Clone(
+			new Rectangle(0,0,width,height),
+			System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+
+		BitmapData data = clone.LockBits(
+			new Rectangle(0,0,width,height),
 			ImageLockMode.ReadOnly,
-			bmp.PixelFormat);
-    
+			System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+
 		try
 		{
-			int stride = bmpData.Stride;
+			int stride = data.Stride;
+
 			unsafe
 			{
-				byte* scan0 = (byte*)bmpData.Scan0;
-            
-				Parallel.For(0, height, j =>
+				byte* scan0 = (byte*)data.Scan0;
+
+				Parallel.For(0, height, y =>
 				{
-					byte* row = scan0 + j * stride;
-                
-					for (int i = 0; i < width; i++)
+					byte* row = scan0 + y * stride;
+
+					for (int x = 0; x < width; x++)
 					{
-						byte b = row[i * 3];
-						byte g = row[i * 3 + 1];
-						byte r = row[i * 3 + 2];
-						matrix.Pixels[j, i] = new Pixel(r, g, b, 0);
+						byte* pixel = row + x * 3;
+
+						matrix.Pixels[y,x] = new Pixel(
+							pixel[2], 
+							pixel[1], 
+							pixel[0], 
+							0);
 					}
 				});
 			}
 		}
 		finally
 		{
-			bmp.UnlockBits(bmpData);
+			clone.UnlockBits(data);
 		}
-    
+
 		return matrix;
 	}
 
 	public static explicit operator Bitmap(Matrix matrix)
 	{
-		var bmp = new Bitmap(matrix.Width, matrix.Height);
+		var bmp = new Bitmap(matrix.Width, matrix.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
 		var rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
 		var data = bmp.LockBits(rect, ImageLockMode.WriteOnly, bmp.PixelFormat);
 		int stride = data.Stride;

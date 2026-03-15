@@ -127,7 +127,7 @@ class HuffmanCodec
 
 	private static Dictionary<BitsWithLength, byte> CreateDecodeTable(BitsWithLength[] encodeTable)
 	{
-		var result = new Dictionary<BitsWithLength, byte>();
+		var result = new Dictionary<BitsWithLength, byte>(new BitsWithLength.Comparer());
 		for (int b = 0; b < encodeTable.Length; b++)
 		{
 			var bitsWithLength = encodeTable[b];
@@ -155,40 +155,23 @@ class HuffmanCodec
 			}
 		}
 	}
-	
-	private static HuffmanNode BuildHuffmanTree(int[] frequencies)
+
+	private static HuffmanNode BuildHuffmanTree(int[] frequences)
 	{
-		var pq = new PriorityQueue<HuffmanNode, int>();
+		var nodes = GetNodes(frequences);
 
-		for (int i = 0; i < frequencies.Length; i++)
+		while (nodes.Count() > 1)
 		{
-			if (frequencies[i] == 0)
-				continue;
-
-			pq.Enqueue(new HuffmanNode
-			{
-				Frequency = frequencies[i],
-				LeafLabel = (byte)i
-			}, frequencies[i]);
+			var firstMin = nodes.MinOrDefault(node => node.Frequency);
+			nodes = nodes.Without(firstMin);
+			var secondMin = nodes.MinOrDefault(node => node.Frequency);
+			nodes = nodes.Without(secondMin);
+			nodes = nodes.Concat(new HuffmanNode
+					{ Frequency = firstMin.Frequency + secondMin.Frequency, Left = secondMin, Right = firstMin }
+				.ToEnumerable());
 		}
 
-		while (pq.Count > 1)
-		{
-			pq.TryDequeue(out var first, out var f1);
-			pq.TryDequeue(out var second, out var f2);
-
-			var parent = new HuffmanNode
-			{
-				Frequency = f1 + f2,
-				Left = second,
-				Right = first
-			};
-
-			pq.Enqueue(parent, parent.Frequency);
-		}
-
-		pq.TryDequeue(out var root, out _);
-		return root;
+		return nodes.First();
 	}
 
 	private static IEnumerable<HuffmanNode> GetNodes(int[] frequences)
@@ -202,11 +185,7 @@ class HuffmanCodec
 	private static int[] CalcFrequences(IEnumerable<byte> data)
 	{
 		var result = new int[byte.MaxValue + 1];
-		foreach (int i in data)
-		{
-			Interlocked.Increment(ref result[i]);
-		}
-		
+		Parallel.ForEach(data, b => Interlocked.Increment(ref result[b]));
 		return result;
 	}
 }

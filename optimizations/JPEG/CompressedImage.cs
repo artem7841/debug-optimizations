@@ -76,7 +76,7 @@ public class CompressedImage
 
 			sr.Read(buffer, 0, 4);
 			var decodeTableSize = BitConverter.ToInt32(buffer, 0);
-			result.DecodeTable = new Dictionary<BitsWithLength, byte>();
+			result.DecodeTable = new Dictionary<BitsWithLength, byte>(decodeTableSize, new BitsWithLength.Comparer());
 
 			for(int i = 0; i < decodeTableSize; i++)
 			{
