@@ -15,6 +15,10 @@ public class JpegProcessor : IJpegProcessor
 	public static readonly JpegProcessor Init = new();
 	public const int CompressionQuality = 70;
 	private const int DCTSize = 8;
+	private static ParallelOptions options = new ParallelOptions
+	{
+		MaxDegreeOfParallelism = Environment.ProcessorCount 
+	};
 
 	public void Compress(string imagePath, string compressedImagePath)
 	{
@@ -42,12 +46,14 @@ public class JpegProcessor : IJpegProcessor
 		var subMatrix = new double[DCTSize, DCTSize];
 		var channelFreqs = new double[DCTSize, DCTSize];
 		var quantizedFreqs = new byte[DCTSize, DCTSize];
+		var lockObject = new object();
 
 		Func<Pixel, double>[] selectrors = new Func<Pixel, double>[] { p => p.Y, p => p.Cb, p => p.Cr };
-		
 
-		for (var y = 0; y < matrix.Height; y += DCTSize)
+		int blocksY = matrix.Height / DCTSize;
+		Parallel.For(0, blocksY, options, yBlock =>
 		{
+			int y = yBlock * DCTSize;
 			for (var x = 0; x < matrix.Width; x += DCTSize)
 			{
 				foreach (var selector in selectrors)
@@ -57,10 +63,13 @@ public class JpegProcessor : IJpegProcessor
 					channelFreqs = DCT.DCT2D(subMatrix);
 					quantizedFreqs = Quantize(channelFreqs, quality);
 					var zigZag = ZigZagScan(quantizedFreqs);
-					allQuantizedBytes.AddRange(zigZag);
+					lock (lockObject)
+					{
+						allQuantizedBytes.AddRange(zigZag);
+					}
 				}
 			}
-		}
+		});
 
 		long bitsCount;
 		Dictionary<BitsWithLength, byte> decodeTable;
@@ -86,9 +95,10 @@ public class JpegProcessor : IJpegProcessor
 			var quantizedFreqs = new byte[DCTSize, DCTSize];
 			var channelFreqs = new double[DCTSize, DCTSize];
 			var channels = new[] { _y, cb, cr };
+			var lockObject = new object();
+			int blocksY = image.Height / DCTSize;
 			
-			
-			for (var y = 0; y < image.Height; y += DCTSize)
+			Parallel.For(0, blocksY, options, y =>
 			{
 				for (var x = 0; x < image.Width; x += DCTSize)
 				{
@@ -101,9 +111,12 @@ public class JpegProcessor : IJpegProcessor
 						ShiftMatrixValues(channel, 128);
 					}
 
-					SetPixels(result, _y, cb, cr, 1, y, x);
+					lock (lockObject)
+					{
+						SetPixels(result, _y, cb, cr, 1, y, x);	
+					}
 				}
-			}
+			});
 		}
 
 		return result;
