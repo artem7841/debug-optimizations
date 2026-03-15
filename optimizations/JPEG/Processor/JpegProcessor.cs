@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using JPEG.Images;
 using PixelFormat = JPEG.Images.PixelFormat;
 
@@ -41,7 +43,7 @@ public class JpegProcessor : IJpegProcessor
 		var subMatrix = new double[DCTSize, DCTSize];
 		var channelFreqs = new double[DCTSize, DCTSize];
 		var quantizedFreqs = new byte[DCTSize, DCTSize];
-		
+		var zigZag = new byte[64];
 
 		for (var y = 0; y < matrix.Height; y += DCTSize)
 		{
@@ -53,7 +55,7 @@ public class JpegProcessor : IJpegProcessor
 					ShiftMatrixValues(subMatrix, -128);
 					channelFreqs = DCT.DCT2D(subMatrix);
 					quantizedFreqs = Quantize(channelFreqs, quality);
-					var zigZag = ZigZagScan(quantizedFreqs);
+					zigZag = ZigZagScan(quantizedFreqs).ToArray();
 					allQuantizedBytes.AddRange(zigZag);
 				}
 			}
@@ -118,11 +120,9 @@ public class JpegProcessor : IJpegProcessor
 	private static void SetPixels(Matrix matrix, double[,] a, double[,] b, double[,] c, byte format,
 		int yOffset, int xOffset)
 	{
-		var height = a.GetLength(0);
-		var width = a.GetLength(1);
 
-		for (var y = 0; y < height; y++)
-		for (var x = 0; x < width; x++)
+		for (var y = 0; y < 8; y++)
+		for (var x = 0; x < 8; x++)
 			matrix.Pixels[yOffset + y, xOffset + x] = new Pixel((float)a[y, x], (float)b[y, x], (float)c[y, x], format);
 	}
 
@@ -196,13 +196,24 @@ public class JpegProcessor : IJpegProcessor
 		};
 	}
 
-
+	private static int[,] matrixQuality70 = new int[,]
+	{
+		{ 10, 7, 6, 10, 14, 24, 31, 37 },
+		{ 7, 7, 8, 11, 16, 35, 36, 33 },
+		{ 8, 8, 10, 14, 24, 34, 41, 34 },
+		{ 8, 10, 13, 17, 31, 52, 48, 37 },
+		{ 11, 13, 22, 34, 41, 65, 62, 46 },
+		{ 14, 21, 33, 38, 49, 62, 68, 55 },
+		{ 29, 38, 47, 52, 62, 73, 72, 61 },
+		{ 43, 55, 57, 59, 67, 60, 62, 59 }
+	};
+	
 
 	private static byte[,] Quantize(double[,] channelFreqs, int quality)
 	{
 		var result = new byte[channelFreqs.GetLength(0), channelFreqs.GetLength(1)];
 
-		var quantizationMatrix = GetQuantizationMatrix(quality);
+		var quantizationMatrix = quality == 70 ? matrixQuality70 : GetQuantizationMatrix(quality);
 		for (int y = 0; y < channelFreqs.GetLength(0); y++)
 		{
 			for (int x = 0; x < channelFreqs.GetLength(1); x++)
@@ -217,7 +228,7 @@ public class JpegProcessor : IJpegProcessor
 	private static double[,] DeQuantize(byte[,] quantizedBytes, int quality)
 	{
 		var result = new double[quantizedBytes.GetLength(0), quantizedBytes.GetLength(1)];
-		var quantizationMatrix = GetQuantizationMatrix(quality);
+		var quantizationMatrix = quality == 70 ? matrixQuality70 : GetQuantizationMatrix(quality);
 
 		for (int y = 0; y < quantizedBytes.GetLength(0); y++)
 		{
